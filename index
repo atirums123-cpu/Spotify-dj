@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify DJ Tool</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0a0f;
+    color: #e8e8f0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 16px;
+  }
+  h1 { font-size: 18px; font-weight: 600; letter-spacing: 2px; color: #1DB954; text-align: center; margin-bottom: 4px; }
+  .subtitle { font-size: 11px; color: #888; text-align: center; margin-bottom: 16px; letter-spacing: 1px; }
+
+  /* Auth */
+  #auth-panel {
+    max-width: 480px; margin: 60px auto; background: #141420;
+    border: 1px solid #2a2a3a; border-radius: 16px; padding: 32px;
+  }
+  #auth-panel h2 { font-size: 16px; font-weight: 500; margin-bottom: 12px; color: #ccc; }
+  #auth-panel p { font-size: 13px; color: #888; line-height: 1.6; margin-bottom: 16px; }
+  #auth-panel ol { font-size: 13px; color: #aaa; padding-left: 20px; line-height: 2; margin-bottom: 20px; }
+  #auth-panel a { color: #1DB954; text-decoration: none; }
+  .input-row { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .input-row input {
+    background: #0d0d1a; border: 1px solid #2a2a3a; border-radius: 8px;
+    color: #e8e8f0; padding: 10px 14px; font-size: 13px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-row input:focus { border-color: #1DB954; }
+  .btn-green {
+    background: #1DB954; color: #000; border: none; border-radius: 24px;
+    padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer;
+    width: 100%; transition: background 0.2s;
+  }
+  .btn-green:hover { background: #1ed760; }
+  .btn-outline {
+    background: transparent; color: #1DB954; border: 1px solid #1DB954; border-radius: 24px;
+    padding: 8px 20px; font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-outline:hover { background: #1DB95422; }
+
+  /* Main DJ Layout */
+  #dj-panel { display: none; flex-direction: column; gap: 12px; }
+
+  /* Top bar */
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #141420; border: 1px solid #2a2a3a; border-radius: 12px; padding: 10px 16px;
+  }
+  .user-info { font-size: 12px; color: #888; }
+  .user-info span { color: #1DB954; font-weight: 500; }
+  .btn-sm {
+    background: transparent; color: #888; border: 1px solid #333; border-radius: 6px;
+    padding: 5px 12px; font-size: 12px; cursor: pointer;
+  }
+
+  /* Decks */
+  .decks { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: start; }
+
+  .deck {
+    background: #141420; border: 1px solid #2a2a3a; border-radius: 14px; padding: 16px;
+  }
+  .deck-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+  }
+  .deck-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #1DB954;
+    background: #1DB95422; border-radius: 6px; padding: 3px 10px;
+  }
+  .deck-label.b { color: #a855f7; background: #a855f722; }
+
+  /* Vinyl */
+  .vinyl-wrap { display: flex; justify-content: center; margin: 12px 0; position: relative; }
+  .vinyl {
+    width: 110px; height: 110px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 50%, #1a1a1a 18%, #222 18.5%, #1a1a1a 36%, #2a2a2a 36.5%, #1a1a1a 54%, #333 54.5%, #1a1a1a 100%);
+    border: 3px solid #333; position: relative; transition: transform 0.1s linear;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .vinyl-center {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #1DB954; display: flex; align-items: center; justify-content: center;
+    font-size: 7px; font-weight: 700; color: #000; z-index: 2;
+  }
+  .vinyl.b .vinyl-center { background: #a855f7; }
+  .vinyl.playing { animation: spin 3s linear infinite; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  /* Track info */
+  .track-info { text-align: center; margin-bottom: 12px; }
+  .track-name { font-size: 14px; font-weight: 600; color: #e8e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .track-artist { font-size: 12px; color: #888; margin-top: 2px; }
+  .track-placeholder { font-size: 12px; color: #444; font-style: italic; }
+
+  /* Stats row */
+  .stats-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .stat-box {
+    flex: 1; background: #0d0d1a; border: 1px solid #1e1e2e; border-radius: 8px;
+    padding: 6px; text-align: center;
+  }
+  .stat-label { font-size: 9px; color: #555; letter-spacing: 1px; margin-bottom: 2px; }
+  .stat-val { font-size: 16px; font-weight: 700; color: #e8e8f0; }
+  .stat-val.green { color: #1DB954; }
+  .stat-val.purple { color: #a855f7; }
+
+  /* Controls */
+  .controls-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 12px; }
+  .ctrl-btn {
+    background: #1e1e2e; border: 1px solid #2a2a3a; border-radius: 50%;
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 14px; color: #ccc; transition: all 0.15s;
+  }
+  .ctrl-btn:hover { background: #2a2a3a; color: #fff; }
+  .ctrl-btn.play-btn { width: 46px; height: 46px; font-size: 18px; background: #1DB954; color: #000; border: none; }
+  .ctrl-btn.play-btn:hover { background: #1ed760; }
+  .ctrl-btn.play-btn.b { background: #a855f7; }
+  .ctrl-btn.play-btn.b:hover { background: #c084fc; }
+
+  /* Slider controls */
+  .knob-row { display: flex; flex-direction: column; gap: 8px; }
+  .knob-row label { font-size: 10px; color: #555; letter-spacing: 1px; display: flex; justify-content: space-between; }
+  .knob-row label span { color: #888; }
+  input[type=range] {
+    -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px;
+    background: #2a2a3a; outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: #1DB954; cursor: pointer;
+  }
+  input[type=range].b::-webkit-slider-thumb { background: #a855f7; }
+
+  /* Load track btn */
+  .load-btn {
+    width: 100%; background: #0d0d1a; border: 1px dashed #2a2a3a; border-radius: 8px;
+    color: #555; font-size: 12px; padding: 8px; cursor: pointer; margin-top: 4px;
+    transition: all 0.15s;
+  }
+  .load-btn:hover { border-color: #1DB954; color: #1DB954; }
+  .load-btn.b:hover { border-color: #a855f7; color: #a855f7; }
+
+  /* Center crossfader section */
+  .center-panel {
+    background: #141420; border: 1px solid #2a2a3a; border-radius: 14px;
+    padding: 16px 10px; display: flex; flex-direction: column;
+    align-items: center; gap: 14px; min-width: 120px;
+  }
+  .center-panel .section-title { font-size: 9px; color: #555; letter-spacing: 1.5px; }
+
+  .xfader-wrap { width: 100%; }
+  .xfader-labels { display: flex; justify-content: space-between; font-size: 9px; color: #555; margin-bottom: 4px; }
+  input[type=range].xfader { background: linear-gradient(to right, #1DB954, #2a2a3a 50%, #a855f7); }
+  input[type=range].xfader::-webkit-slider-thumb { background: #fff; border: 2px solid #555; }
+
+  /* Sync btn */
+  .sync-btn {
+    background: #0d0d1a; border: 1px solid #2a2a3a; border-radius: 8px;
+    color: #888; font-size: 11px; font-weight: 600; padding: 7px 14px; cursor: pointer;
+    letter-spacing: 1px; transition: all 0.15s; width: 100%; text-align: center;
+  }
+  .sync-btn:hover { border-color: #1DB954; color: #1DB954; }
+
+  /* EQ section */
+  .eq-row { display: flex; gap: 4px; }
+  .eq-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .eq-col label { font-size: 8px; color: #555; letter-spacing: 1px; }
+  input[type=range].eq-v {
+    -webkit-appearance: slider-vertical; writing-mode: vertical-lr;
+    direction: rtl; width: 20px; height: 60px; background: #2a2a3a;
+    padding: 0;
+  }
+
+  /* Playlist panel */
+  .playlist-panel {
+    background: #141420; border: 1px solid #2a2a3a; border-radius: 14px; padding: 16px;
+  }
+  .playlist-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .playlist-header h3 { font-size: 13px; font-weight: 600; color: #ccc; }
+  .playlist-select {
+    background: #0d0d1a; border: 1px solid #2a2a3a; border-radius: 8px;
+    color: #e8e8f0; padding: 6px 10px; font-size: 12px; outline: none; flex: 1; margin-right: 8px;
+  }
+  .tracks-list { max-height: 180px; overflow-y: auto; }
+  .track-item {
+    display: flex; align-items: center; gap: 10px; padding: 7px 8px;
+    border-radius: 8px; cursor: pointer; transition: background 0.1s;
+  }
+  .track-item:hover { background: #1e1e2e; }
+  .track-num { font-size: 11px; color: #555; width: 18px; text-align: right; }
+  .track-details { flex: 1; min-width: 0; }
+  .track-details .name { font-size: 12px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .track-details .artist { font-size: 11px; color: #666; }
+  .track-actions { display: flex; gap: 4px; }
+  .tag-a, .tag-b {
+    font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; cursor: pointer;
+    border: 1px solid;
+  }
+  .tag-a { color: #1DB954; border-color: #1DB954; }
+  .tag-a:hover { background: #1DB95433; }
+  .tag-b { color: #a855f7; border-color: #a855f7; }
+  .tag-b:hover { background: #a855f733; }
+  .track-bpm { font-size: 10px; color: #555; width: 32px; text-align: right; }
+
+  /* Status */
+  .status-bar { text-align: center; font-size: 11px; color: #555; padding: 4px 0; }
+  #status-msg { color: #1DB954; }
+
+  /* Loading */
+  .loading { text-align: center; padding: 20px; font-size: 12px; color: #555; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- AUTH PANEL -->
+<div id="auth-panel">
+  <h1>DJ TOOL</h1>
+  <p class="subtitle" style="margin-bottom:24px;">POWERED BY SPOTIFY</p>
+  <h2>Setup</h2>
+  <p>To use this tool you need a free Spotify Developer account. This only takes 2 minutes:</p>
+  <ol>
+    <li>Go to <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a></li>
+    <li>Log in and click <strong>Create app</strong></li>
+    <li>Set Redirect URI to: <code style="color:#1DB954;font-size:12px;" id="redirect-uri-display"></code></li>
+    <li>Copy your <strong>Client ID</strong> and paste below</li>
+  </ol>
+  <p style="font-size:12px;color:#666;">Requires <strong style="color:#aaa;">Spotify Premium</strong> for playback control.</p>
+  <div class="input-row">
+    <input type="text" id="client-id-input" placeholder="Paste your Client ID here..." />
+  </div>
+  <button class="btn-green" onclick="startAuth()">Connect to Spotify</button>
+  <p style="font-size:11px;color:#555;margin-top:12px;text-align:center;">Your Client ID is stored in memory only and never sent anywhere.</p>
+</div>
+
+<!-- DJ PANEL -->
+<div id="dj-panel">
+  <!-- Top bar -->
+  <div class="top-bar">
+    <h1 style="margin:0;font-size:16px;">DJ TOOL</h1>
+    <div class="user-info">Connected as <span id="user-display">—</span></div>
+    <button class="btn-sm" onclick="disconnect()">Disconnect</button>
+  </div>
+
+  <!-- Decks + Crossfader -->
+  <div class="decks">
+    <!-- DECK A -->
+    <div class="deck">
+      <div class="deck-header">
+        <span class="deck-label">DECK A</span>
+        <span style="font-size:10px;color:#555;" id="deck-a-time">0:00</span>
+      </div>
+      <div class="vinyl-wrap">
+        <div class="vinyl" id="vinyl-a"><div class="vinyl-center">A</div></div>
+      </div>
+      <div class="track-info">
+        <div id="track-a-name" class="track-placeholder">No track loaded</div>
+        <div id="track-a-artist" style="font-size:11px;color:#555;"></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-label">BPM</div><div class="stat-val green" id="bpm-a">—</div></div>
+        <div class="stat-box"><div class="stat-label">KEY</div><div class="stat-val" id="key-a" style="font-size:13px;">—</div></div>
+        <div class="stat-box"><div class="stat-label">PITCH</div><div class="stat-val green" id="pitch-a-val">0%</div></div>
+      </div>
+      <div class="controls-row">
+        <div class="ctrl-btn" onclick="skipPrev('a')" title="Previous">&#9664;&#9664;</div>
+        <div class="ctrl-btn play-btn" id="play-a" onclick="togglePlay('a')">&#9654;</div>
+        <div class="ctrl-btn" onclick="skipNext('a')" title="Next">&#9654;&#9654;</div>
+      </div>
+      <div class="knob-row">
+        <label>TEMPO <span id="pitch-a-label">0%</span></label>
+        <input type="range" id="pitch-a" min="-12" max="12" value="0" step="0.5" oninput="updatePitch('a',this.value)">
+        <label>VOLUME <span id="vol-a-label">80%</span></label>
+        <input type="range" id="vol-a" min="0" max="100" value="80" oninput="updateVol('a',this.value)">
+      </div>
+      <button class="load-btn" onclick="loadFromPlaylist('a')">+ Load to Deck A</button>
+    </div>
+
+    <!-- CENTER -->
+    <div class="center-panel">
+      <div class="section-title">CROSSFADER</div>
+      <div class="xfader-wrap">
+        <div class="xfader-labels"><span>A</span><span>B</span></div>
+        <input type="range" class="xfader" id="xfader" min="0" max="100" value="50" oninput="updateCrossfader(this.value)">
+      </div>
+
+      <div style="width:100%;border-top:1px solid #1e1e2e;"></div>
+
+      <div class="section-title">SYNC</div>
+      <button class="sync-btn" onclick="syncBPM()">SYNC BPM</button>
+      <div style="font-size:9px;color:#555;text-align:center;line-height:1.4;">Matches B<br>tempo to A</div>
+
+      <div style="width:100%;border-top:1px solid #1e1e2e;"></div>
+
+      <div class="section-title">MASTER VOL</div>
+      <input type="range" id="master-vol" min="0" max="100" value="100" oninput="updateMasterVol(this.value)" style="width:100%">
+      <div id="master-vol-label" style="font-size:10px;color:#888;">100%</div>
+    </div>
+
+    <!-- DECK B -->
+    <div class="deck">
+      <div class="deck-header">
+        <span class="deck-label b">DECK B</span>
+        <span style="font-size:10px;color:#555;" id="deck-b-time">0:00</span>
+      </div>
+      <div class="vinyl-wrap">
+        <div class="vinyl b" id="vinyl-b"><div class="vinyl-center">B</div></div>
+      </div>
+      <div class="track-info">
+        <div id="track-b-name" class="track-placeholder">No track loaded</div>
+        <div id="track-b-artist" style="font-size:11px;color:#555;"></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-label">BPM</div><div class="stat-val purple" id="bpm-b">—</div></div>
+        <div class="stat-box"><div class="stat-label">KEY</div><div class="stat-val" id="key-b" style="font-size:13px;">—</div></div>
+        <div class="stat-box"><div class="stat-label">PITCH</div><div class="stat-val purple" id="pitch-b-val">0%</div></div>
+      </div>
+      <div class="controls-row">
+        <div class="ctrl-btn" onclick="skipPrev('b')">&#9664;&#9664;</div>
+        <div class="ctrl-btn play-btn b" id="play-b" onclick="togglePlay('b')">&#9654;</div>
+        <div class="ctrl-btn" onclick="skipNext('b')">&#9654;&#9654;</div>
+      </div>
+      <div class="knob-row">
+        <label>TEMPO <span id="pitch-b-label">0%</span></label>
+        <input type="range" class="b" id="pitch-b" min="-12" max="12" value="0" step="0.5" oninput="updatePitch('b',this.value)">
+        <label>VOLUME <span id="vol-b-label">80%</span></label>
+        <input type="range" class="b" id="vol-b" min="0" max="100" value="80" oninput="updateVol('b',this.value)">
+      </div>
+      <button class="load-btn b" onclick="loadFromPlaylist('b')">+ Load to Deck B</button>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-bar"><span id="status-msg">Ready</span></div>
+
+  <!-- Playlist -->
+  <div class="playlist-panel">
+    <div class="playlist-header">
+      <h3>Playlists</h3>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
+      <select class="playlist-select" id="playlist-select" onchange="loadPlaylistTracks()">
+        <option value="">Select a playlist...</option>
+      </select>
+      <button class="btn-outline" onclick="refreshPlaylists()" style="white-space:nowrap;font-size:12px;padding:6px 12px;">Refresh</button>
+    </div>
+    <div class="tracks-list" id="tracks-list">
+      <div class="loading">Select a playlist to see tracks</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCOPES = 'user-read-private user-read-email playlist-read-private streaming user-read-playback-state user-modify-playback-state user-library-read';
+let clientId = '';
+let token = '';
+let deviceId = '';
+let player = null;
+let playlists = [];
+let currentTracks = [];
+let deckA = { track: null, playing: false, bpm: null, key: null, pitch: 0, vol: 80 };
+let deckB = { track: null, playing: false, bpm: null, key: null, pitch: 0, vol: 80 };
+let activeDeck = null;
+let loadingDeck = null;
+let xfaderVal = 50;
+let masterVol = 100;
+let vinylAngle = { a: 0, b: 0 };
+let spinInterval = null;
+
+function setStatus(msg, err) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.style.color = err ? '#ff5555' : '#1DB954';
+}
+
+document.getElementById('redirect-uri-display').textContent = window.location.href.split('?')[0].split('#')[0];
+
+function startAuth() {
+  clientId = document.getElementById('client-id-input').value.trim();
+  if (!clientId) { alert('Please enter your Client ID'); return; }
+  const redirectUri = window.location.href.split('?')[0].split('#')[0];
+  const url = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(SCOPES)}&show_dialog=true`;
+  window.location.href = url;
+}
+
+function getHashParams() {
+  const hash = window.location.hash.substring(1);
+  return Object.fromEntries(hash.split('&').map(p => p.split('=')));
+}
+
+async function init() {
+  const params = getHashParams();
+  if (params.access_token) {
+    token = params.access_token;
+    const saved = sessionStorage.getItem('dj_client_id');
+    if (saved) clientId = saved;
+    window.history.replaceState({}, document.title, window.location.pathname);
+    await showDJPanel();
+  } else {
+    const savedCid = sessionStorage.getItem('dj_client_id');
+    if (savedCid) document.getElementById('client-id-input').value = savedCid;
+  }
+}
+
+document.getElementById('client-id-input').addEventListener('input', function() {
+  sessionStorage.setItem('dj_client_id', this.value.trim());
+});
+
+async function showDJPanel() {
+  document.getElementById('auth-panel').style.display = 'none';
+  document.getElementById('dj-panel').style.display = 'flex';
+  document.getElementById('dj-panel').style.flexDirection = 'column';
+
+  // Get user profile
+  try {
+    const r = await fetch('https://api.spotify.com/v1/me', { headers: { Authorization: `Bearer ${token}` } });
+    const u = await r.json();
+    document.getElementById('user-display').textContent = u.display_name || u.id;
+  } catch(e) {}
+
+  initWebPlaybackSDK();
+  await refreshPlaylists();
+}
+
+function initWebPlaybackSDK() {
+  if (window.Spotify) { setupPlayer(); return; }
+  const script = document.createElement('script');
+  script.src = 'https://sdk.scdn.co/spotify-player.js';
+  document.head.appendChild(script);
+  window.onSpotifyWebPlaybackSDKReady = setupPlayer;
+}
+
+function setupPlayer() {
+  player = new Spotify.Player({
+    name: 'DJ Tool',
+    getOAuthToken: cb => cb(token),
+    volume: 0.8
+  });
+
+  player.addListener('ready', ({ device_id }) => {
+    deviceId = device_id;
+    setStatus('Player ready — select a track to begin');
+    transferPlayback(device_id);
+  });
+
+  player.addListener('not_ready', () => setStatus('Player disconnected', true));
+
+  player.addListener('player_state_changed', state => {
+    if (!state) return;
+    const track = state.track_window.current_track;
+    const playing = !state.paused;
+    if (activeDeck === 'a') updateDeckState('a', track, playing);
+    else if (activeDeck === 'b') updateDeckState('b', track, playing);
+  });
+
+  player.connect();
+}
+
+async function transferPlayback(device_id) {
+  try {
+    await fetch('https://api.spotify.com/v1/me/player', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_ids: [device_id], play: false })
+    });
+  } catch(e) {}
+}
+
+function updateDeckState(deck, track, playing) {
+  const d = deck === 'a' ? deckA : deckB;
+  d.playing = playing;
+  document.getElementById(`play-${deck}`).innerHTML = playing ? '&#9646;&#9646;' : '&#9654;';
+  const vinyl = document.getElementById(`vinyl-${deck}`);
+  if (playing) vinyl.classList.add('playing'); else vinyl.classList.remove('playing');
+}
+
+async function refreshPlaylists() {
+  setStatus('Loading playlists...');
+  try {
+    const r = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', { headers: { Authorization: `Bearer ${token}` } });
+    const data = await r.json();
+    playlists = data.items || [];
+    const sel = document.getElementById('playlist-select');
+    sel.innerHTML = '<option value="">Select a playlist...</option>';
+    playlists.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.id; o.textContent = p.name;
+      sel.appendChild(o);
+    });
+    setStatus('Playlists loaded');
+  } catch(e) { setStatus('Could not load playlists', true); }
+}
+
+async function loadPlaylistTracks() {
+  const id = document.getElementById('playlist-select').value;
+  if (!id) return;
+  document.getElementById('tracks-list').innerHTML = '<div class="loading">Loading tracks...</div>';
+  try {
+    const r = await fetch(`https://api.spotify.com/v1/playlists/${id}/tracks?limit=50&fields=items(track(id,name,artists,duration_ms,uri,album))`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await r.json();
+    currentTracks = (data.items || []).map(i => i.track).filter(Boolean);
+    renderTracks();
+    // Fetch audio features
+    fetchAudioFeatures(currentTracks.map(t => t.id));
+  } catch(e) {
+    document.getElementById('tracks-list').innerHTML = '<div class="loading">Failed to load tracks</div>';
+  }
+}
+
+async function fetchAudioFeatures(ids) {
+  try {
+    const r = await fetch(`https://api.spotify.com/v1/audio-features?ids=${ids.slice(0,50).join(',')}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await r.json();
+    const feats = data.audio_features || [];
+    feats.forEach((f, i) => {
+      if (f && currentTracks[i]) {
+        currentTracks[i]._bpm = Math.round(f.tempo);
+        currentTracks[i]._key = getKeyName(f.key, f.mode);
+      }
+    });
+    renderTracks();
+  } catch(e) {}
+}
+
+const KEYS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function getKeyName(key, mode) {
+  if (key < 0) return '?';
+  return KEYS[key] + (mode === 1 ? '' : 'm');
+}
+
+function renderTracks() {
+  const el = document.getElementById('tracks-list');
+  if (!currentTracks.length) { el.innerHTML = '<div class="loading">No tracks found</div>'; return; }
+  el.innerHTML = currentTracks.map((t, i) => {
+    const bpm = t._bpm ? t._bpm : '—';
+    const artist = t.artists ? t.artists.map(a => a.name).join(', ') : '';
+    return `<div class="track-item">
+      <span class="track-num">${i+1}</span>
+      <div class="track-details">
+        <div class="name">${t.name}</div>
+        <div class="artist">${artist}</div>
+      </div>
+      <span class="track-bpm">${bpm}</span>
+      <div class="track-actions">
+        <span class="tag-a" onclick="assignTrack(${i},'a')">A</span>
+        <span class="tag-b" onclick="assignTrack(${i},'b')">B</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function loadFromPlaylist(deck) {
+  if (!currentTracks.length) { setStatus('Select a playlist first', true); return; }
+  loadingDeck = deck;
+  setStatus(`Click a track's ${deck.toUpperCase()} button to load it`);
+}
+
+function assignTrack(idx, deck) {
+  const track = currentTracks[idx];
+  if (!track) return;
+  const d = deck === 'a' ? deckA : deckB;
+  d.track = track;
+  d.bpm = track._bpm || null;
+  d.key = track._key || null;
+
+  document.getElementById(`track-${deck}-name`).textContent = track.name;
+  document.getElementById(`track-${deck}-name`).className = 'track-name';
+  document.getElementById(`track-${deck}-artist`).textContent = track.artists ? track.artists.map(a=>a.name).join(', ') : '';
+  document.getElementById(`bpm-${deck}`).textContent = track._bpm || '—';
+  document.getElementById(`key-${deck}`).textContent = track._key || '—';
+
+  setStatus(`Loaded "${track.name}" to Deck ${deck.toUpperCase()}`);
+}
+
+async function togglePlay(deck) {
+  const d = deck === 'a' ? deckA : deckB;
+  if (!d.track) { setStatus(`Load a track to Deck ${deck.toUpperCase()} first`, true); return; }
+  if (!deviceId) { setStatus('Spotify player not ready yet', true); return; }
+
+  activeDeck = deck;
+  if (d.playing) {
+    await fetch('https://api.spotify.com/v1/me/player/pause', {
+      method: 'PUT', headers: { Authorization: `Bearer ${token}` }
+    });
+    d.playing = false;
+    document.getElementById(`play-${deck}`).innerHTML = '&#9654;';
+    document.getElementById(`vinyl-${deck}`).classList.remove('playing');
+    setStatus('Paused');
+  } else {
+    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uris: [d.track.uri] })
+    });
+    d.playing = true;
+    document.getElementById(`play-${deck}`).innerHTML = '&#9646;&#9646;';
+    document.getElementById(`vinyl-${deck}`).classList.add('playing');
+    setStatus(`Playing "${d.track.name}"`);
+    applyVolumes();
+  }
+}
+
+async function skipPrev(deck) {
+  try {
+    await fetch('https://api.spotify.com/v1/me/player/previous', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  } catch(e) {}
+}
+async function skipNext(deck) {
+  try {
+    await fetch('https://api.spotify.com/v1/me/player/next', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  } catch(e) {}
+}
+
+function updatePitch(deck, val) {
+  val = parseFloat(val);
+  const d = deck === 'a' ? deckA : deckB;
+  d.pitch = val;
+  document.getElementById(`pitch-${deck}-label`).textContent = (val >= 0 ? '+' : '') + val.toFixed(1) + '%';
+  document.getElementById(`pitch-${deck}-val`).textContent = (val >= 0 ? '+' : '') + val.toFixed(1) + '%';
+  if (d.bpm) {
+    const adjusted = (d.bpm * (1 + val/100));
+    document.getElementById(`bpm-${deck}`).textContent = adjusted.toFixed(1);
+  }
+}
+
+function updateVol(deck, val) {
+  const d = deck === 'a' ? deckA : deckB;
+  d.vol = parseInt(val);
+  document.getElementById(`vol-${deck}-label`).textContent = val + '%';
+  applyVolumes();
+}
+
+function updateCrossfader(val) {
+  xfaderVal = parseInt(val);
+  applyVolumes();
+}
+
+function updateMasterVol(val) {
+  masterVol = parseInt(val);
+  document.getElementById('master-vol-label').textContent = val + '%';
+  applyVolumes();
+}
+
+function applyVolumes() {
+  const xA = (100 - xfaderVal) / 100;
+  const xB = xfaderVal / 100;
+  const volA = (deckA.vol / 100) * xA * (masterVol / 100);
+  const volB = (deckB.vol / 100) * xB * (masterVol / 100);
+  const active = activeDeck === 'b' ? volB : volA;
+  if (player && deviceId) {
+    fetch(`https://api.spotify.com/v1/me/player/volume?volume_percent=${Math.round(active * 100)}&device_id=${deviceId}`, {
+      method: 'PUT', headers: { Authorization: `Bearer ${token}` }
+    }).catch(() => {});
+  }
+}
+
+function syncBPM() {
+  if (!deckA.bpm || !deckB.bpm) { setStatus('Load tracks with BPM data to both decks', true); return; }
+  const ratio = deckA.bpm / deckB.bpm;
+  const pitchNeeded = (ratio - 1) * 100;
+  const clamped = Math.max(-12, Math.min(12, pitchNeeded));
+  const slider = document.getElementById('pitch-b');
+  slider.value = clamped;
+  updatePitch('b', clamped);
+  setStatus(`Synced Deck B to ${deckA.bpm} BPM`);
+}
+
+function disconnect() {
+  if (player) player.disconnect();
+  token = ''; deviceId = '';
+  document.getElementById('auth-panel').style.display = 'block';
+  document.getElementById('dj-panel').style.display = 'none';
+  setStatus('Ready');
+}
+
+init();
+</script>
+</body>
+</html>
